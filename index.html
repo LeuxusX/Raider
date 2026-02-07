@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>荒らし共栄圏 Raider</title>
+<title>Raider (修正版)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   body { margin:0; min-height:100vh; background:#000; display:flex; justify-content:center; align-items:center; font-family:system-ui,sans-serif; color:#fee2e2; }
@@ -28,42 +28,42 @@
 </head>
 <body>
 <div class="container">
-  <h1>荒らし共栄圏 Raider</h1>
+  <h1>荒らし共栄圏 Raider (修正版)</h1>
 
-  <label for="tokens">アカウントトークン</label>
-  <textarea id="tokens" placeholder="トークン複数可能 (改行)"></textarea>
+  <label for="tokens">アカウントトークン (改行区切り)</label>
+  <textarea id="tokens" placeholder="トークン複数可"></textarea>
 
   <div class="row">
     <div>
-      <label for="delay">送信速度</label>
-      <input type="number" id="delay" value="5000" min="2000">
+      <label for="delay">間隔 (ms)</label>
+      <input type="number" id="delay" value="8000" min="3000">
     </div>
     <div>
-      <label for="count">送信回数</label>
+      <label for="count">最大送信回数 (0=無限)</label>
       <input type="number" id="count" value="0" min="0">
     </div>
   </div>
 
   <div class="row">
     <div>
-      <label for="guildId">サーバーID</label>
-      <input type="text" id="guildId" placeholder="例: 123456789012345678">
+      <label for="guildId">サーバーID (任意)</label>
+      <input type="text" id="guildId" placeholder="なくてもOK">
     </div>
     <div>
-      <label for="channelId">チャンネルID</label>
+      <label for="channelId">チャンネルID (必須)</label>
       <input type="text" id="channelId" placeholder="例: 987654321098765432">
     </div>
   </div>
 
-  <label for="message">送信メッセージ</label>
-  <textarea id="message" maxlength="2000" placeholder="ここにメッセージ"></textarea>
+  <label for="message">メッセージ (必須)</label>
+  <textarea id="message" maxlength="2000" placeholder="送信したい内容"></textarea>
 
   <div class="buttons">
     <button id="startBtn" onclick="startSending()">起動</button>
     <button id="stopBtn" onclick="stopSending()">停止</button>
   </div>
 
-  <div class="stats" id="stats">送信成功: 0 回</div>
+  <div class="stats" id="stats">成功: 0 回</div>
   <div class="log" id="log"></div>
 </div>
 
@@ -71,7 +71,6 @@
 const tokensEl = document.getElementById('tokens');
 const delayEl = document.getElementById('delay');
 const countEl = document.getElementById('count');
-const guildEl = document.getElementById('guildId');
 const channelEl = document.getElementById('channelId');
 const messageEl = document.getElementById('message');
 const logEl = document.getElementById('log');
@@ -86,42 +85,26 @@ let currentIndex = 0;
 let sentCount = 0;
 
 function log(msg, className = '') {
-  logEl.innerHTML += `<span class="${className}">${new Date().toLocaleTimeString('ja-JP', {hour12:false})} ${msg}</span><br>`;
+  logEl.innerHTML += `<span class="${className}">[${new Date().toLocaleTimeString('ja-JP',{hour12:false})}] ${msg}</span><br>`;
   logEl.scrollTop = logEl.scrollHeight;
 }
 
 function updateStats() {
-  statsEl.textContent = `送信ログ: ${successCount} 回`;
-}
-
-function clear() {
-  logEl.innerHTML = '';
-  successCount = sentCount = currentIndex = 0;
-  updateStats();
+  statsEl.textContent = `成功: ${successCount} 回 / 送信済: ${sentCount} 回`;
 }
 
 function stopSending() {
   isRunning = false;
   stopBtn.classList.remove('active');
   startBtn.disabled = false;
-  log('🛑 停止しました');
-}
-
-async function validateToken(token) {
-  try {
-    const res = await fetch('https://discord.com/api/v10/users/@me', {
-      headers: { 'Authorization': token.trim() }
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
+  log('停止しました');
 }
 
 async function sendMessage(token, channelId, content) {
   const uaList = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0'
   ];
   const randomUA = uaList[Math.floor(Math.random() * uaList.length)];
 
@@ -131,102 +114,102 @@ async function sendMessage(token, channelId, content) {
       headers: {
         'Authorization': token.trim(),
         'Content-Type': 'application/json',
-        'User-Agent': randomUA
+        'User-Agent': randomUA,
+        'X-Super-Properties': 'eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiQ2hyb21lIiwiZGV2aWNlIjoiIiwic3lzdGVtX2xvY2FsZSI6ImphIn0=' // 適当な偽装（軽減用）
       },
-      body: JSON.stringify({ content })
+      body: JSON.stringify({ content: content.trim() })
     });
 
     if (res.ok) {
       successCount++;
       updateStats();
+      log(`成功 [トークン末尾...${token.slice(-6)}]`);
       return { success: true };
     }
 
+    const headers = res.headers;
+    const retryAfterHeader = headers.get('retry-after') || headers.get('Retry-After');
+    let retryAfter = retryAfterHeader ? parseFloat(retryAfterHeader) * 1000 : 5000;
+
     if (res.status === 429) {
-      const data = await res.json().catch(() => ({}));
-      const wait = (data.retry_after || 5) * 1000 + 1000; // 余裕
-      log(`レートリミット検知 ${Math.round(wait/1000)}秒待機`, 'error');
-      await new Promise(r => setTimeout(r, wait));
-      return { success: false, retry: true };
+      try {
+        const data = await res.json();
+        retryAfter = (data.retry_after || 5) * 1000 + 2000;
+        log(`429 Rate Limit → ${Math.round(retryAfter/1000)}秒待機`, 'error');
+      } catch {}
+      return { success: false, retry: true, wait: retryAfter };
     }
 
-    let reason = res.status;
-    if (res.status === 401) reason = '無効トークン';
-    if (res.status === 403) reason = '権限なし/凍結';
-    log(`送信失敗 [${reason}]`, 'error');
+    let errMsg = `失敗 [${res.status}]`;
+    if (res.status === 401) errMsg += ' → 無効/期限切れトークン';
+    if (res.status === 403) errMsg += ' → 権限なし or BAN';
+    if (res.status === 400) errMsg += ' → メッセージ内容不正';
+    log(errMsg, 'error');
+
     return { success: false };
   } catch (e) {
-    log(`ネットワークエラー: ${e.message}`, 'error');
-    return { success: false };
+    log(`ネットワークエラー: ${e.message} (CORS? ブロック? トークン無効?)`, 'error');
+    return { success: false, network: true };
   }
 }
 
 async function startSending() {
   if (isRunning) return;
-  clear();
+  logEl.innerHTML = '';
+  successCount = sentCount = currentIndex = 0;
+  updateStats();
+
   stopBtn.classList.add('active');
   startBtn.disabled = true;
 
-  const raw = tokensEl.value.trim();
-  const delay = Math.max(2000, parseInt(delayEl.value) || 5000);
-  const max = parseInt(countEl.value) || 0;
+  const rawTokens = tokensEl.value.trim();
+  const delay = Math.max(3000, parseInt(delayEl.value) || 8000);
+  const maxCount = parseInt(countEl.value) || 0;
   const channelId = channelEl.value.trim();
   const msg = messageEl.value.trim();
 
-  if (!raw || !channelId || !msg) {
-    log('必須項目が入力されてないよ', 'error');
+  if (!rawTokens || !channelId || !msg) {
+    log('トークン / チャンネルID / メッセージ は必須', 'error');
     stopSending();
     return;
   }
 
-  tokenList = raw.split('\n').map(t => t.trim()).filter(t => t.length > 50);
+  tokenList = rawTokens.split('\n').map(t => t.trim()).filter(t => t.length > 50 && t.includes('.'));
 
   if (tokenList.length === 0) {
-    log('有効トークンない', 'error');
+    log('有効そうなトークンがありません', 'error');
     stopSending();
     return;
   }
 
-  log(`有効トークン検証中... (${tokenList.length}個)`);
-
-  const validTokens = [];
-  for (const t of tokenList) {
-    const valid = await validateToken(t);
-    if (valid) validTokens.push(t);
-    else log(`無効トークン除外: ${t.slice(0,15)}...`, 'error');
-    await new Promise(r => setTimeout(r, 600));
-  }
-
-  if (validTokens.length === 0) {
-    log('トークン無効にしたよぉ', 'error');
-    stopSending();
-    return;
-  }
-
-  tokenList = validTokens;
-  log(`有効: ${tokenList.length}個 | 間隔:${delay}ms | 最大:${max||'無限'}回開始`);
+  log(`トークン数: ${tokenList.length} | 間隔:${delay}ms | 最大:${maxCount||'∞'}回`);
 
   isRunning = true;
 
-  while (isRunning && (max === 0 || sentCount < max)) {
+  while (isRunning && (maxCount === 0 || sentCount < maxCount)) {
+    if (!isRunning) break;
+
     const token = tokenList[currentIndex % tokenList.length];
     currentIndex++;
 
     const result = await sendMessage(token, channelId, msg);
 
+    sentCount++;
+
     if (result.retry) {
+      await new Promise(r => setTimeout(r, result.wait || 10000));
       continue;
     }
 
-    if (result.success) {
-      sentCount++;
-      log(`送信成功 [${sentCount}/${max||'∞'}]`);
+    if (result.network) {
+      // ネットワークエラー連発なら少し長めに待機
+      await new Promise(r => setTimeout(r, 15000));
     }
 
-    if (isRunning) await new Promise(r => setTimeout(r, delay));
+    await new Promise(r => setTimeout(r, delay));
   }
 
-  log('終了');
+  log('完了 or 停止');
   stopSending();
 }
 </script>
